@@ -110,4 +110,12 @@ public unsafe class GameRenderer
     {
         _sdl.RenderPresent(_renderer);
     }
+
+    public void RenderAura(int x, int y, int width, int height)
+    {
+        // Render a semi-transparent yellow aura centered on the given coordinates
+        var rect = _camera.ToScreenCoordinates(new Rectangle<int>(x - width / 2, y - height / 2, width, height));
+        SetDrawColor(255, 255, 0, 128);
+        _sdl.RenderFillRect(_renderer, in rect);
+    }
 }

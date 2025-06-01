@@ -34,6 +34,11 @@ public static class Program
                 engine.ProcessFrame();
                 engine.RenderFrame();
 
+                if (engine.ShouldQuit)
+                {
+                    break;
+                }
+
                 Thread.Sleep(13);
             }
         }
@@ -41,3 +46,4 @@ public static class Program
         sdl.Quit();
     }
 }
+

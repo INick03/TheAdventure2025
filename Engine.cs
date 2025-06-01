@@ -1,4 +1,3 @@
-using System.Reflection;
 using System.Text.Json;
 using Silk.NET.Maths;
 using TheAdventure.Models;
@@ -15,12 +14,22 @@ public class Engine
 
     private readonly Dictionary<int, GameObject> _gameObjects = new();
     private readonly Dictionary<string, TileSet> _loadedTileSets = new();
+#pragma warning disable 414 // Field is assigned but its value is never used
     private readonly Dictionary<int, Tile> _tileIdMap = new();
 
-    private Level _currentLevel = new();
+    private Level _currentLevel;
     private PlayerObject? _player;
 
     private DateTimeOffset _lastUpdate = DateTimeOffset.Now;
+
+    private GodModePickup? _godModePickup;
+    private int? _godModeTextureId;
+    private bool _godModeActive;
+    private DateTimeOffset _godModeEndTime;
+
+    private bool _playerDead = false;
+    private DateTimeOffset? _deathTime = null;
+    public bool ShouldQuit => _playerDead && _deathTime.HasValue && (DateTimeOffset.Now - _deathTime.Value).TotalSeconds > 2;
 
     public Engine(GameRenderer renderer, Input input)
     {
@@ -30,9 +39,17 @@ public class Engine
         _input.OnMouseClick += (_, coords) => AddBomb(coords.x, coords.y);
     }
 
+    private static bool RectsIntersect(Rectangle<int> a, Rectangle<int> b)
+    {
+        return a.Origin.X < b.Origin.X + b.Size.X && a.Origin.X + a.Size.X > b.Origin.X &&
+               a.Origin.Y < b.Origin.Y + b.Size.Y && a.Origin.Y + a.Size.Y > b.Origin.Y;
+    }
+
     public void SetupWorld()
     {
         _player = new(SpriteSheet.Load(_renderer, "Player.json", "Assets"), 100, 100);
+
+        _godModeTextureId = _renderer.LoadTexture("Assets/GodMode.png", out var godModeTextureInfo);
 
         var levelContent = File.ReadAllText(Path.Combine("Assets", "terrain.tmj"));
         var level = JsonSerializer.Deserialize<Level>(levelContent);
@@ -79,6 +96,8 @@ public class Engine
 
     public void ProcessFrame()
     {
+        if (_playerDead) return;
+
         var currentTime = DateTimeOffset.Now;
         var msSinceLastFrame = (currentTime - _lastUpdate).TotalMilliseconds;
         _lastUpdate = currentTime;
@@ -86,6 +105,11 @@ public class Engine
         if (_player == null)
         {
             return;
+        }
+
+        if (_godModeActive && currentTime > _godModeEndTime)
+        {
+            _godModeActive = false;
         }
 
         double up = _input.IsUpPressed() ? 1.0 : 0.0;
@@ -100,7 +124,25 @@ public class Engine
         {
             _player.Attack();
         }
-        
+
+        // GodMode pickup: check center-to-center distance for collision
+        if (_godModePickup != null && !_godModeActive)
+        {
+            int playerCenterX = _player.Position.X + 8;
+            int playerCenterY = _player.Position.Y + 8;
+            int pickupCenterX = _godModePickup.Position.X + 8;
+            int pickupCenterY = _godModePickup.Position.Y + 8;
+            int dx = playerCenterX - pickupCenterX;
+            int dy = playerCenterY - pickupCenterY;
+            if (dx * dx + dy * dy <= 8 * 8)
+            {
+                _godModeActive = true;
+                _godModeEndTime = currentTime.AddSeconds(5);
+                _gameObjects.Remove(_godModePickup.Id);
+                _godModePickup = null;
+            }
+        }
+
         _scriptEngine.ExecuteAll(this);
 
         if (addBomb)
@@ -128,6 +170,20 @@ public class Engine
         var toRemove = new List<int>();
         foreach (var gameObject in GetRenderables())
         {
+            if (_godModeActive && gameObject is TemporaryGameObject bomb)
+            {
+                var playerRect = new Rectangle<int>(_player!.Position.X, _player.Position.Y, 48, 48);
+                var bombRect = new Rectangle<int>(bomb.Position.X, bomb.Position.Y, 48, 48);
+                if (RectsIntersect(playerRect, bombRect))
+                {
+                    _renderer.SetDrawColor(255, 0, 0, 255);
+                }
+                else
+                {
+                    toRemove.Add(bomb.Id);
+                    continue;
+                }
+            }
             gameObject.Render(_renderer);
             if (gameObject is TemporaryGameObject { IsExpired: true } tempGameObject)
             {
@@ -144,15 +200,25 @@ public class Engine
                 continue;
             }
 
-            var tempGameObject = (TemporaryGameObject)gameObject!;
-            var deltaX = Math.Abs(_player.Position.X - tempGameObject.Position.X);
-            var deltaY = Math.Abs(_player.Position.Y - tempGameObject.Position.Y);
-            if (deltaX < 32 && deltaY < 32)
+            if (!_godModeActive && gameObject is TemporaryGameObject tempGameObject)
             {
-                _player.GameOver();
+                var playerCenter = (X: _player.Position.X + 24, Y: _player.Position.Y + 24);
+                var bombCenter = (X: tempGameObject.Position.X + 24, Y: tempGameObject.Position.Y + 24);
+                var dx = playerCenter.X - bombCenter.X;
+                var dy = playerCenter.Y - bombCenter.Y;
+                if (dx * dx + dy * dy <= 8 * 8)
+                {
+                    _player.GameOver();
+                    _playerDead = true;
+                    _deathTime = DateTimeOffset.Now;
+                }
             }
         }
 
+        if (_godModeActive)
+        {
+            _renderer.RenderAura(_player.Position.X, _player.Position.Y, 16, 16);
+        }
         _player?.Render(_renderer);
     }
 
@@ -215,4 +281,16 @@ public class Engine
         TemporaryGameObject bomb = new(spriteSheet, 2.1, (worldCoords.X, worldCoords.Y));
         _gameObjects.Add(bomb.Id, bomb);
     }
+
+    public bool IsGodModeActive() => _godModeActive;
+
+    public void SpawnGodModePickup(int x, int y)
+    {
+        if (_godModeTextureId == null || _godModePickup != null)
+            return;
+        _godModePickup = new GodModePickup(_godModeTextureId.Value, (x, y), 32);
+        _gameObjects.Add(_godModePickup.Id, _godModePickup);
+    }
+
+    public bool IsGodModePickupPresent() => _godModePickup != null;
 }
