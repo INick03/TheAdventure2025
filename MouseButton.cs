@@ -1,15 +1,14 @@
-namespace TheAdventure;
-
-public enum MouseButton : byte
+// MouseButton.cs
+namespace TheAdventure
 {
-    Primary = 1,
-    Middle,
-    Secondary,
-    Button4,
-    Button5,
-    Button6,
-    Button7,
-    Button8,
-    Button9,
-    Count,
+    public enum MouseButton
+    {
+        Unknown = 0,
+        Left = 1,
+        Middle = 2,
+        Right = 3,
+        X1 = 4,
+        X2 = 5
+    }
 }
+

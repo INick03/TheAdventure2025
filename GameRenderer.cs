@@ -91,9 +91,32 @@ public unsafe class GameRenderer
         }
     }
 
+    public Vector2D<int> GetCameraViewSize()
+    {
+        return new Vector2D<int>(_camera.Width, _camera.Height);
+    }
+
+    public void CenterCameraOnScreen(int screenWidth, int screenHeight)
+    {
+        _camera.LookAt(screenWidth / 2, screenHeight / 2);
+    }
+
     public Vector2D<int> ToWorldCoordinates(int x, int y)
     {
-        return _camera.ToWorldCoordinates(new Vector2D<int>(x, y));
+        return _camera.ToWorldCoordinates(new Silk.NET.Maths.Vector2D<int>(x, y));
+    }
+
+    public void DrawRectangle(Rectangle<int> rect, bool filled)
+    {
+        var screenRect = _camera.ToScreenCoordinates(rect);
+        if (filled)
+        {
+            _sdl.RenderFillRect(_renderer, &screenRect);
+        }
+        else
+        {
+            _sdl.RenderDrawRect(_renderer, &screenRect);
+        }
     }
 
     public void SetDrawColor(byte r, byte g, byte b, byte a)
@@ -109,5 +132,10 @@ public unsafe class GameRenderer
     public void PresentFrame()
     {
         _sdl.RenderPresent(_renderer);
+    }
+
+    public void DrawText(string text, int x, int y, byte r = 255, byte g = 255, byte b = 255, byte a = 255)
+    {
+        // Placeholder for text rendering
     }
 }

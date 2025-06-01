@@ -16,15 +16,13 @@ public class ScriptEngine
                      Path.DirectorySeparatorChar;
         var references = new string[]
         {
-            #region .Net SDK
-
             rtPath + "System.Private.CoreLib.dll",
             rtPath + "System.Runtime.dll",
             rtPath + "System.Console.dll",
             rtPath + "netstandard.dll",
-            rtPath + "System.Text.RegularExpressions.dll", // IMPORTANT!
+            rtPath + "System.Text.RegularExpressions.dll",
             rtPath + "System.Linq.dll",
-            rtPath + "System.Linq.Expressions.dll", // IMPORTANT!
+            rtPath + "System.Linq.Expressions.dll",
             rtPath + "System.IO.dll",
             rtPath + "System.Net.Primitives.dll",
             rtPath + "System.Net.Http.dll",
@@ -35,9 +33,6 @@ public class ScriptEngine
             rtPath + "System.Collections.Concurrent.dll",
             rtPath + "System.Collections.NonGeneric.dll",
             rtPath + "Microsoft.CSharp.dll",
-
-            #endregion
-            
             typeof(IScript).Assembly.Location
         };
         _scriptReferences = references.Select(x => MetadataReference.CreateFromFile(x)).ToArray();
@@ -48,17 +43,11 @@ public class ScriptEngine
         AttachWatcher(scriptFolder);
         var dirInfo = new DirectoryInfo(scriptFolder);
         if (!dirInfo.Exists)
-        {
             return;
-        }
-
         foreach (var file in dirInfo.GetFiles())
         {
             if (!file.Name.EndsWith(".script.cs"))
-            {
                 continue;
-            }
-
             try
             {
                 Load(file.FullName);
@@ -74,9 +63,7 @@ public class ScriptEngine
     public void ExecuteAll(Engine engine)
     {
         foreach (var script in _scripts)
-        {
             script.Value.Execute(engine);
-        }
     }
 
     private void AttachWatcher(string path)
@@ -92,10 +79,7 @@ public class ScriptEngine
     private void OnScriptChanged(object source, FileSystemEventArgs e)
     {
         if (!_scripts.ContainsKey(e.FullPath))
-        {
             return;
-        }
-        
         Console.WriteLine($"Change detected for: {e.FullPath}");
         switch (e.ChangeType)
         {
@@ -133,11 +117,9 @@ public class ScriptEngine
                             $"{diag.Descriptor.MessageFormat.ToString()} - {code.Substring(diag.Location.SourceSpan.Start, diag.Location.SourceSpan.Length)} - {diag.Descriptor.HelpLinkUri.ToString()} - {diag.Location.ToString()}");
                     }
                 }
-
                 throw new FileLoadException(file);
             }
         }
-
         foreach (var type in Assembly.LoadFile(fileOutput).GetTypes())
         {
             if (type.IsAssignableTo(typeof(IScript)))
@@ -148,11 +130,10 @@ public class ScriptEngine
                     instance.Initialize();
                     _scripts.Add(file, instance);
                 }
-
                 return instance;
             }
         }
-
         return null;
     }
 }
+
