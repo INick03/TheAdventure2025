@@ -16,10 +16,11 @@ public class RandomBomb : IScript
         if (_nextBombTimestamp < DateTimeOffset.UtcNow)
         {
             _nextBombTimestamp = DateTimeOffset.UtcNow.AddSeconds(Random.Shared.Next(2, 5));
-            var playerPos = engine.GetPlayerPosition();
+            var playerPos = engine.GetPlayerPositionFromEngine();
             var bombPosX = playerPos.X + Random.Shared.Next(-50, 50);
             var bombPosY = playerPos.Y + Random.Shared.Next(-50, 50);
             engine.AddBomb(bombPosX, bombPosY, false);
         }
     }
 }
+
